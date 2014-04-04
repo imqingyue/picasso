@@ -26,7 +26,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
-
+import android.util.Log;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,6 +38,7 @@ import static android.content.Intent.ACTION_AIRPLANE_MODE_CHANGED;
 import static android.net.ConnectivityManager.CONNECTIVITY_ACTION;
 import static android.os.Process.THREAD_PRIORITY_BACKGROUND;
 import static com.squareup.picasso.BitmapHunter.forRequest;
+import static com.squareup.picasso.Picasso.TAG;
 import static com.squareup.picasso.Utils.getService;
 
 class Dispatcher {
@@ -135,12 +136,21 @@ class Dispatcher {
     }
 
     if (service.isShutdown()) {
+      if (action.picasso.loggingEnabled) {
+        Request request = action.request;
+        Log.d(TAG, "[" + request.id + "] Dispatcher is shut down. Ignoring. " + request.delta());
+      }
       return;
     }
 
     hunter = forRequest(context, action.getPicasso(), this, cache, stats, action, downloader);
     hunter.future = service.submit(hunter);
     hunterMap.put(action.getKey(), hunter);
+
+    if (action.picasso.loggingEnabled) {
+      Request request = action.request;
+      Log.d(TAG, "[" + request.id + "] Enqueued in dispatcher. " + request.delta());
+    }
   }
 
   void performCancel(Action action) {
@@ -161,6 +171,8 @@ class Dispatcher {
       performError(hunter);
       return;
     }
+
+    // TODO log
 
     if (hunter.shouldRetry(airplaneMode, networkInfo)) {
       hunter.future = service.submit(hunter);

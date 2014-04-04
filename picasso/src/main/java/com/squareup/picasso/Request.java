@@ -19,11 +19,17 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Collections.unmodifiableList;
 
 /** Immutable data about an image and the transformations that will be applied to it. */
 public final class Request {
+  /** A unique ID for the request. */
+  int id;
+  /** The time that the request was first submitted (in nanos). */
+  long started;
+
   /**
    * The image URI.
    * <p>
@@ -68,6 +74,7 @@ public final class Request {
   private Request(Uri uri, int resourceId, List<Transformation> transformations, int targetWidth,
       int targetHeight, boolean centerCrop, boolean centerInside, float rotationDegrees,
       float rotationPivotX, float rotationPivotY, boolean hasRotationPivot, Bitmap.Config config) {
+
     this.uri = uri;
     this.resourceId = resourceId;
     if (transformations == null) {
@@ -84,6 +91,10 @@ public final class Request {
     this.rotationPivotY = rotationPivotY;
     this.hasRotationPivot = hasRotationPivot;
     this.config = config;
+  }
+
+  String delta() {
+    return "(+" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) + "ms)";
   }
 
   String getName() {

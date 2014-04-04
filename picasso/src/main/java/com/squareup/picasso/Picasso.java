@@ -81,6 +81,7 @@ public class Picasso {
     };
   }
 
+  static final String TAG = "Picasso";
   static final Handler HANDLER = new Handler(Looper.getMainLooper()) {
     @Override public void handleMessage(Message msg) {
       switch (msg.what) {
@@ -119,6 +120,8 @@ public class Picasso {
   final ReferenceQueue<Object> referenceQueue;
 
   boolean indicatorsEnabled;
+  volatile boolean loggingEnabled;
+
   boolean shutdown;
 
   Picasso(Context context, Dispatcher dispatcher, Cache cache, Listener listener,
@@ -222,19 +225,23 @@ public class Picasso {
   }
 
   /**
-   * @deprecated Use {@link #areIndicatorsEnabled()} instead.
    * {@code true} if debug display, logging, and statistics are enabled.
+   * <p>
+   * @deprecated Use {@link #areIndicatorsEnabled()} and {@link #isLoggingEnabled()} instead.
    */
   @SuppressWarnings("UnusedDeclaration") @Deprecated public boolean isDebugging() {
-    return areIndicatorsEnabled();
+    return areIndicatorsEnabled() && isLoggingEnabled();
   }
 
   /**
-   * @deprecated Use {@link #setIndicatorsEnabled(boolean)} instead.
    * Toggle whether debug display, logging, and statistics are enabled.
+   * <p>
+   * @deprecated Use {@link #setIndicatorsEnabled(boolean)} and {@link #setLoggingEnabled(boolean)}
+   * instead.
    */
   @SuppressWarnings("UnusedDeclaration") @Deprecated public void setDebugging(boolean debugging) {
     setIndicatorsEnabled(debugging);
+    setLoggingEnabled(debugging);
   }
 
   /** Toggle whether to display debug indicators on images. */
@@ -245,6 +252,16 @@ public class Picasso {
   /** {@code true} if debug indicators should are displayed on images. */
   @SuppressWarnings("UnusedDeclaration") public boolean areIndicatorsEnabled() {
     return indicatorsEnabled;
+  }
+
+  /** Toggle whether debug logging is enabled. */
+  public void setLoggingEnabled(boolean enabled) {
+    loggingEnabled = enabled;
+  }
+
+  /** {@code true} if debug logging is enabled. */
+  public boolean isLoggingEnabled() {
+    return loggingEnabled;
   }
 
   /**

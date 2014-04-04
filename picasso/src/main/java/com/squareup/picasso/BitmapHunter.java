@@ -22,6 +22,7 @@ import android.graphics.Matrix;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.provider.MediaStore;
+import android.util.Log;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -35,6 +36,7 @@ import static android.content.ContentResolver.SCHEME_FILE;
 import static android.provider.ContactsContract.Contacts;
 import static com.squareup.picasso.AssetBitmapHunter.ANDROID_ASSET;
 import static com.squareup.picasso.Picasso.LoadedFrom.MEMORY;
+import static com.squareup.picasso.Picasso.TAG;
 
 abstract class BitmapHunter implements Runnable {
 
@@ -73,7 +75,7 @@ abstract class BitmapHunter implements Runnable {
     this.cache = cache;
     this.stats = stats;
     this.key = action.getKey();
-    this.data = action.getData();
+    this.data = action.getRequest();
     this.skipMemoryCache = action.skipCache;
     this.action = action;
   }
@@ -85,6 +87,20 @@ abstract class BitmapHunter implements Runnable {
   @Override public void run() {
     try {
       updateThreadName(data);
+
+      if (picasso.loggingEnabled) {
+        StringBuilder log = new StringBuilder("[");
+        if (action != null) {
+          log.append(action.request.id);
+        }
+        if (actions != null) {
+          for (int i = 0, count = actions.size(); i < count; i++) {
+            if (i > 0 || action != null) log.append(", ");
+            log.append(actions.get(i).request.id);
+          }
+        }
+        log.append("] Executing... ").append()
+      }
 
       result = hunt();
 
@@ -120,6 +136,7 @@ abstract class BitmapHunter implements Runnable {
     if (!skipMemoryCache) {
       bitmap = cache.get(key);
       if (bitmap != null) {
+        // TODO log
         stats.dispatchCacheHit();
         loadedFrom = MEMORY;
         return bitmap;
@@ -129,14 +146,18 @@ abstract class BitmapHunter implements Runnable {
     bitmap = decode(data);
 
     if (bitmap != null) {
+      // TODO log
       stats.dispatchBitmapDecoded(bitmap);
+
       if (data.needsTransformation() || exifRotation != 0) {
         synchronized (DECODE_LOCK) {
           if (data.needsMatrixTransform() || exifRotation != 0) {
             bitmap = transformResult(data, bitmap, exifRotation);
+            // TODO log
           }
           if (data.hasCustomTransformations()) {
             bitmap = applyCustomTransformations(data.transformations, bitmap);
+            // TODO log
           }
         }
         if (bitmap != null) {
@@ -149,13 +170,46 @@ abstract class BitmapHunter implements Runnable {
   }
 
   void attach(Action action) {
+    boolean loggingEnabled = picasso.loggingEnabled;
+    Request request = action.request;
+
     if (this.action == null) {
+      if (loggingEnabled) {
+        if (actions == null || actions.isEmpty()) {
+          Log.d(TAG, "[" + request.id + "] Attaching to empty hunter. " + request.delta());
+        } else {
+          StringBuilder log = new StringBuilder("[")
+              .append(request.id)
+              .append("] Attaching to hunter for ");
+          for (int i = 0, count = actions.size(); i < count; i++) {
+            if (i > 0) log.append(", ");
+            log.append(actions.get(i).request.id);
+          }
+          log.append(". ").append(request.delta());
+          Log.d(TAG, log.toString());
+        }
+      }
+
       this.action = action;
       return;
     }
+
     if (actions == null) {
       actions = new ArrayList<Action>(3);
     }
+
+    if (loggingEnabled) {
+      StringBuilder log = new StringBuilder("[")
+          .append(request.id)
+          .append("] Attaching to hunter of ")
+          .append(this.action.request.id);
+      for (Action existing : actions) {
+        log.append(", ").append(existing.request.id);
+      }
+      log.append(". ").append(request.delta());
+      Log.d(TAG, log.toString());
+    }
+
     actions.add(action);
   }
 
@@ -164,6 +218,24 @@ abstract class BitmapHunter implements Runnable {
       this.action = null;
     } else if (actions != null) {
       actions.remove(action);
+    }
+
+    if (picasso.loggingEnabled) {
+      Request request = action.request;
+      StringBuilder log = new StringBuilder("[")
+          .append(request.id)
+          .append("] Detaching from hunter of ");
+      if (this.action != null) {
+        log.append(this.action.request.id);
+      }
+      if (actions != null) {
+        for (int i = 0, count = actions.size(); i < count; i++) {
+          if (i > 0 || this.actions != null) log.append(", ");
+          log.append(actions.get(i).request.id);
+        }
+      }
+      log.append(". ").append(request.delta());
+      Log.d(TAG, log.toString());
     }
   }
 
@@ -226,10 +298,10 @@ abstract class BitmapHunter implements Runnable {
 
   static BitmapHunter forRequest(Context context, Picasso picasso, Dispatcher dispatcher,
       Cache cache, Stats stats, Action action, Downloader downloader) {
-    if (action.getData().resourceId != 0) {
+    if (action.getRequest().resourceId != 0) {
       return new ResourceBitmapHunter(context, picasso, dispatcher, cache, stats, action);
     }
-    Uri uri = action.getData().uri;
+    Uri uri = action.getRequest().uri;
     String scheme = uri.getScheme();
     if (SCHEME_CONTENT.equals(scheme)) {
       if (Contacts.CONTENT_URI.getHost().equals(uri.getHost()) //
