@@ -1,6 +1,7 @@
 Picasso
 =======
 
+Picasso 是 Android 上一个强大的图片下载和缓存库。
 A powerful image downloading and caching library for Android
 
 ![](website/static/sample.png)
